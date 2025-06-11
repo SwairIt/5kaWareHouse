@@ -9,6 +9,7 @@ print(BASE_DIR / ".env")
 
 class Settings(BaseSettings):
     BOT_TOKEN: SecretStr = Field(..., validation_alias="BOT_TOKEN")
+    DB_LITE: str = f"sqlite+aiosqlite:///{BASE_DIR}/my_base.db"
 
     model_config = SettingsConfigDict(
         env_file = BASE_DIR / ".env",
