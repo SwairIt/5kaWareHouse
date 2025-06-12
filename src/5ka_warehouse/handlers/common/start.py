@@ -1,19 +1,32 @@
 from aiogram import Router, types, F
 from aiogram.filters import CommandStart, Command, StateFilter
+from aiogram.fsm.context import FSMContext
+from aiogram.fsm.state import State, StatesGroup
+
+# from sqlite3 import IntegrityError
 
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from database.orm_query import orm_add_product, orm_update_product
+from database.orm_query import orm_add_product, orm_update_product, orm_get_products, orm_get_product
 
-from aiogram.fsm.context import FSMContext
-from aiogram.fsm.state import State, StatesGroup
+from kbds.inline import get_admin_kb
+
 
 router = Router()
 
 
-@router.message(CommandStart())
+@router.message(StateFilter(None), CommandStart())
 async def start(message: types.Message):
     await message.answer("Добро пожаловать!")
+
+
+@router.message(StateFilter(None), Command("all_products"))
+async def all_products_cmd(message: types.Message, session: AsyncSession):
+    products = await orm_get_products(session)
+
+    for product in products:
+        await message.answer(f"Название: {product.name}\nЦена: {product.price}\nКол-во: {product.quantity}\nАртикул: {product.article}", reply_markup=get_admin_kb(product.id).as_markup())
+    await message.answer("Все товары 🔝")
 
 
 ############ FSM ################################
@@ -28,7 +41,9 @@ class AddProduct(StatesGroup):
 
 
 @router.message(StateFilter(None), Command("new_product"))
-async def new_product(message: types.Message, state: FSMContext):
+async def new_product(message: types.Message, session: AsyncSession, state: FSMContext):
+    AddProduct.product_for_change = await orm_get_product(session, 4)
+
     await message.answer("Введите название товара")
     await state.set_state(AddProduct.name)
 
@@ -55,34 +70,58 @@ async def add_name(message: types.Message, state: FSMContext):
     await state.set_state(AddProduct.price)
 
 
+@router.message(AddProduct.name)
+async def add_name2(message: types.Message):
+    await message.answer("Введите текст!")
+
+
 @router.message(AddProduct.price, F.text)
 async def add_price(message: types.Message, state: FSMContext):
     if message.text == "." and AddProduct.product_for_change:
         await state.update_data(price=AddProduct.product_for_change.price)
-    else:
+    elif message.text.isdigit():
         await state.update_data(price=message.text)
+    else:
+        await message.answer("Введите число!")
+        return
     
     await message.answer("Введите кол-во")
     await state.set_state(AddProduct.quantity)
 
 
+@router.message(AddProduct.price)
+async def add_price2(message: types.Message):
+    await message.answer("Введите число!")
+
+
 @router.message(AddProduct.quantity, F.text)
-async def add_price(message: types.Message, state: FSMContext):
+async def add_quantity(message: types.Message, state: FSMContext):
     if message.text == "." and AddProduct.product_for_change:
         await state.update_data(quantity=AddProduct.product_for_change.quantity)
-    else:
+    elif message.text.isdigit():
         await state.update_data(quantity=message.text)
+    else:
+        await message.answer("Введите число!")
+        return
     
     await message.answer("Введите id категории(потом будут inline кнопки!!!)")
     await state.set_state(AddProduct.category)
 
 
+@router.message(AddProduct.quantity)
+async def add_quantity2(message: types.Message):
+    await message.answer("Введите число!")
+
+
 @router.message(AddProduct.category, F.text)
-async def add_price(message: types.Message, state: FSMContext, session: AsyncSession):
+async def add_category(message: types.Message, state: FSMContext, session: AsyncSession):
     if message.text == "." and AddProduct.product_for_change:
-        await state.update_data(category=AddProduct.product_for_change.category)
+        await state.update_data(category_id=AddProduct.product_for_change.category)
+    elif message.text.isdigit():
+        await state.update_data(category_id=message.text)
     else:
-        await state.update_data(category=message.text)
+        await message.answer("Введите число!")
+        return
     
     data = await state.get_data()
 
@@ -98,19 +137,7 @@ async def add_price(message: types.Message, state: FSMContext, session: AsyncSes
             f"Ошибка: \n{str(e)}\nОбратись к программеру",)
         await state.clear()
 
-    await message.answer("Введите id категории(потом будут inline кнопки!!!)")
-    await state.set_state(AddProduct.category)
 
-
-
-@router.message(Command("new_product"))
-async def new_product(message: types.Message, session: AsyncSession):
-    new_product = await orm_add_product(session,
-                                        {
-                                            "name": "Йогурт ФрутоНяня",
-                                            "price": 59.90,
-                                            "quantity": 100,
-                                            "category_id": 1
-                                        })
-    
-    await message.answer(f"Создан товар: {new_product.name}, артикул: {new_product.article}")
+@router.message(AddProduct.category)
+async def add_quantity2(message: types.Message):
+    await message.answer("Введите число!")

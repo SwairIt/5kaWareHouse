@@ -21,7 +21,7 @@ class Product(Base):
     __tablename__ = "product"
 
     id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
-    name: Mapped[str] = mapped_column(String(150), nullable=False)
+    name: Mapped[str] = mapped_column(String(150), nullable=False, unique=True)
     article: Mapped[str] = mapped_column(String(50), unique=True, nullable=True, server_default="TEMP")
     barcode: Mapped[str] = mapped_column(String(20), unique=True, nullable=True)
     price: Mapped[float] = mapped_column(Numeric(10, 2))

@@ -1,5 +1,7 @@
 import time
 
+# import uuid
+
 from sqlalchemy import select, update, delete
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -35,15 +37,34 @@ async def orm_add_product(session: AsyncSession, product_data: dict):
 
 
 async def orm_update_product(session: AsyncSession, product_id: int, product_data: dict):
-    async with session.begin():
-        query = update(Product).where(Product.id == product_id).values(
-            article=f"TEMP-{int(time.time())}",
-            **product_data
-        )
+    query = update(Product).where(Product.id == product_id).values(
+        name=product_data["name"],
+        price=product_data["price"],
+        quantity=product_data["quantity"],
+        category_id=product_data["category_id"])
+    await session.execute(query)
+    await session.commit()
 
-        session.add(query)
-        await session.flush()
-        
-        query.article = f"ART-{query.id:05d}"
-        
-        return query
+
+async def orm_get_products(session: AsyncSession):
+    query = select(Product)
+    result = await session.scalars(query)
+    return result
+    
+
+async def orm_get_product(session: AsyncSession, product_id: int):
+    query = select(Product).where(Product.id == product_id)
+    result = await session.scalar(query)
+    return result
+
+
+async def orm_delete_product(session: AsyncSession, product_id: int) -> None:
+    query = delete(Product).where(Product.id == product_id)
+    await session.execute(query)
+    await session.commit()
+
+
+# async def orm_update_product(session: AsyncSession, product_id: int, product_data: dict):
+#     query = update(Product).where(Product.id == product_id).values(**product_data)
+#     session.add(query)
+#     await session.commit()
